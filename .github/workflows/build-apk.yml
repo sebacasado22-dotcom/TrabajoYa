@@ -1,0 +1,63 @@
+name: Build TrabajoYa APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Extraer proyecto V2
+        run: |
+          mkdir -p proyecto
+          unzip -o TrabajoYa_V2_APK_GitHub.zip -d proyecto
+          echo "Contenido extraído:"
+          find proyecto -maxdepth 3 -type f | head -100
+
+      - name: Encontrar proyecto Node
+        run: |
+          PROJECT_DIR=$(find proyecto -name package.json -type f -print -quit | xargs dirname)
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Proyecto encontrado en: $PROJECT_DIR"
+
+      - name: Instalar dependencias
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npm install
+
+      - name: Instalar Capacitor Android
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap add android || true
+          npx cap sync android
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Configurar Android
+        uses: android-actions/setup-android@v3
+
+      - name: Compilar APK
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrabajoYa-APK
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
