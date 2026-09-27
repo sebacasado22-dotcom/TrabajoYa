@@ -37,6 +37,15 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
+
+      - name: Construir aplicación web
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          npm run build
+
+      - name: Preparar Android
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
           npx cap add android || true
           npx cap sync android
 
