@@ -19,7 +19,7 @@ jobs:
       - name: Extraer proyecto V2
         run: |
           mkdir -p proyecto
-          unzip -o "TrabajoYa_V2_MEJORADA.zip" -d proyecto -d proyecto -d proyecto
+          unzip -o "TrabajoYa_V2_MEJORADA.zip" -d proyecto
           echo "Contenido extraído:"
           find proyecto -maxdepth 3 -type f | head -100
 
