@@ -31,7 +31,7 @@ jobs:
           
       - name: Aplicar corrección de postulaciones
         run: |
-          cp Main.js "$PROJECT_DIR/src/Main.js"
+          cp "$GITHUB_WORKSPACE/Main.js" "$GITHUB_WORKSPACE/$PROJECT_DIR/src/Main.js"
           echo "Corrección de postulaciones aplicada"
           
 
