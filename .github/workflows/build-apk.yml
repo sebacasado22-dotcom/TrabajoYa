@@ -30,14 +30,12 @@ jobs:
           echo "Proyecto encontrado en: $PROJECT_DIR"
           
       
-      - name: Buscar y aplicar corrección
+      
+      - name: Aplicar corrección de postulaciones
         run: |
-          echo "Directorio actual:"
-          pwd
-          echo "Archivos de la raíz:"
-          ls -la "$GITHUB_WORKSPACE"
-          echo "Buscando Main.js:"
-          find "$GITHUB_WORKSPACE" -type f -iname "Main.js"
+          cp "$GITHUB_WORKSPACE/main.js" "$GITHUB_WORKSPACE/$PROJECT_DIR/src/main.js"
+          echo "Corrección de postulaciones aplicada"
+          
           
           
 
