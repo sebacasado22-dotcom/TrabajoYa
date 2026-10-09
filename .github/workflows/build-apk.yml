@@ -29,10 +29,16 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Proyecto encontrado en: $PROJECT_DIR"
           
-      - name: Aplicar corrección de postulaciones
+      
+      - name: Buscar y aplicar corrección
         run: |
-          cp "$GITHUB_WORKSPACE/Main.js" "$GITHUB_WORKSPACE/$PROJECT_DIR/src/Main.js"
-          echo "Corrección de postulaciones aplicada"
+          echo "Directorio actual:"
+          pwd
+          echo "Archivos de la raíz:"
+          ls -la "$GITHUB_WORKSPACE"
+          echo "Buscando Main.js:"
+          find "$GITHUB_WORKSPACE" -type f -iname "Main.js"
+          
           
 
       - name: Instalar dependencias
