@@ -28,6 +28,12 @@ jobs:
           PROJECT_DIR=$(find proyecto -name package.json -type f -print -quit | xargs dirname)
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Proyecto encontrado en: $PROJECT_DIR"
+          
+      - name: Aplicar corrección de postulaciones
+        run: |
+          cp Main.js "$PROJECT_DIR/src/Main.js"
+          echo "Corrección de postulaciones aplicada"
+          
 
       - name: Instalar dependencias
         working-directory: ${{ env.PROJECT_DIR }}
