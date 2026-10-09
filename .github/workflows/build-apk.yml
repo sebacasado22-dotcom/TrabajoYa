@@ -76,6 +76,20 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+          
+      - name: Compilar paquete AAB
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease
+
+      - name: Guardar paquete AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrabajoYa-AAB
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/bundle/release/*.aab
+          
+
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
