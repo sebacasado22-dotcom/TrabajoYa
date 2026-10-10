@@ -77,11 +77,60 @@ jobs:
           ./gradlew assembleDebug
 
           
-      - name: Compilar paquete AAB
+      
+      - name: Compilar paquete AAB firmado
         working-directory: ${{ env.PROJECT_DIR }}/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/trabajoya-release.jks
         run: |
+          set -euo pipefail
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path("app/build.gradle")
+          if not p.exists():
+              raise SystemExit("No se encontró app/build.gradle; no se modificó ningún archivo.")
+
+          s = p.read_text()
+          signing = """
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                  }
+              }
+          """
+
+          if "signingConfigs {" not in s:
+              if not re.search(r'(?m)^\\s*buildTypes\\s*\\{', s):
+                  raise SystemExit("No se encontró buildTypes en app/build.gradle.")
+              s = re.sub(r'(?m)^\\s*buildTypes\\s*\\{',
+                         signing + "\n    buildTypes {", s, count=1)
+
+          pattern = r'(buildTypes\\s*\\{\\s*release\\s*\\{)'
+          if not re.search(pattern, s):
+              raise SystemExit("No se encontró el bloque release de buildTypes.")
+          if "signingConfig signingConfigs.release" not in s:
+              s = re.sub(pattern,
+                         r'\\1\n            signingConfig signingConfigs.release',
+                         s, count=1)
+
+          p.write_text(s)
+          print("Configuración de firma aplicada.")
+          PY
+
           chmod +x gradlew
           ./gradlew bundleRelease
+          
 
       - name: Guardar paquete AAB
         uses: actions/upload-artifact@v4
