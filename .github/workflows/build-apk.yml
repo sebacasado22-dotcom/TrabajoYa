@@ -93,6 +93,7 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
           test -s "$ANDROID_KEYSTORE_PATH"
 
+          
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -100,15 +101,14 @@ jobs:
           p = Path("app/build.gradle")
           if not p.exists():
               p = Path("app/build.gradle.kts")
-
           if not p.exists():
-              raise SystemExit("No se encontró el archivo Gradle de la aplicación.")
+              raise SystemExit("No se encontró el archivo Gradle.")
 
           s = p.read_text()
-          is_kotlin = p.suffix == ".kts"
+          kotlin = p.suffix == ".kts"
 
-          if is_kotlin:
-              signing = """
+          if kotlin:
+              block = '''
               signingConfigs {
                   create("release") {
                       storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))
@@ -117,10 +117,11 @@ jobs:
                       keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
                   }
               }
-          """
-              release_line = 'signingConfig = signingConfigs.getByName("release")'
+          '''
+              config = 'signingConfig = signingConfigs.getByName("release")'
+              release = r'(?m)^(\s*)getByName\("release"\)\s*\{'
           else:
-              signing = """
+              block = '''
               signingConfigs {
                   release {
                       storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
@@ -129,34 +130,29 @@ jobs:
                       keyPassword System.getenv("ANDROID_KEY_PASSWORD")
                   }
               }
-          """
-              release_line = "signingConfig signingConfigs.release"
+          '''
+              config = "signingConfig signingConfigs.release"
+              release = r'(?m)^(\s*)release\s*\{'
 
           if "signingConfigs" not in s:
-              s = re.sub(r'(?m)^android\\s*\\{',
-                         lambda m: m.group(0) + "\\n" + signing,
-                         s, count=1)
+              m = re.search(r'(?m)^(\s*)android\s*\{', s)
+              if not m:
+                  raise SystemExit("No se encontró android { en el archivo Gradle.")
+              pos = m.end()
+              s = s[:pos] + "\n" + block + s[pos:]
 
-          if "signingConfigs" not in s:
-              raise SystemExit("No se pudo insertar signingConfigs.")
+          m = re.search(release, s)
+          if not m:
+              raise SystemExit("No se encontró el bloque release. Hay que revisar el Gradle.")
 
-          if "buildTypes" in s:
-              if is_kotlin:
-                  pattern = r'(?m)^(\\s*)getByName\\("release"\\)\\s*\\{'
-                  replacement = lambda m: m.group(0) + "\\n" + m.group(1) + "    " + release_line
-                  s, n = re.subn(pattern, replacement, s, count=1)
-              else:
-                  pattern = r'(?m)^\\s*release\\s*\\{'
-                  s, n = re.subn(pattern, lambda m: m.group(0) + "\\n            " + release_line, s, count=1)
-              if n == 0:
-                  raise SystemExit("No se encontró el bloque release para configurar la firma.")
-          else:
-              raise SystemExit("El archivo no tiene buildTypes; necesito revisar su estructura.")
+          if config not in s:
+              pos = m.end()
+              s = s[:pos] + "\n" + m.group(1) + "    " + config + s[pos:]
 
           p.write_text(s)
-          print("Configuración de firma aplicada.")
+          print("Firma configurada.")
           PY
-
+          
           chmod +x gradlew
           ./gradlew bundleRelease
           
