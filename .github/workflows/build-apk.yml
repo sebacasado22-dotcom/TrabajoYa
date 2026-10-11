@@ -78,6 +78,7 @@ jobs:
 
           
       
+      
       - name: Compilar paquete AAB firmado
         working-directory: ${{ env.PROJECT_DIR }}/android
         env:
@@ -88,7 +89,9 @@ jobs:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/trabajoya-release.jks
         run: |
           set -euo pipefail
+
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          test -s "$ANDROID_KEYSTORE_PATH"
 
           python3 - <<'PY'
           from pathlib import Path
@@ -96,10 +99,28 @@ jobs:
 
           p = Path("app/build.gradle")
           if not p.exists():
-              raise SystemExit("No se encontró app/build.gradle; no se modificó ningún archivo.")
+              p = Path("app/build.gradle.kts")
+
+          if not p.exists():
+              raise SystemExit("No se encontró el archivo Gradle de la aplicación.")
 
           s = p.read_text()
-          signing = """
+          is_kotlin = p.suffix == ".kts"
+
+          if is_kotlin:
+              signing = """
+              signingConfigs {
+                  create("release") {
+                      storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                  }
+              }
+          """
+              release_line = 'signingConfig = signingConfigs.getByName("release")'
+          else:
+              signing = """
               signingConfigs {
                   release {
                       storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
@@ -109,20 +130,28 @@ jobs:
                   }
               }
           """
+              release_line = "signingConfig signingConfigs.release"
 
-          if "signingConfigs {" not in s:
-              if not re.search(r'(?m)^\\s*buildTypes\\s*\\{', s):
-                  raise SystemExit("No se encontró buildTypes en app/build.gradle.")
-              s = re.sub(r'(?m)^\\s*buildTypes\\s*\\{',
-                         signing + "\n    buildTypes {", s, count=1)
-
-          pattern = r'(buildTypes\\s*\\{\\s*release\\s*\\{)'
-          if not re.search(pattern, s):
-              raise SystemExit("No se encontró el bloque release de buildTypes.")
-          if "signingConfig signingConfigs.release" not in s:
-              s = re.sub(pattern,
-                         r'\\1\n            signingConfig signingConfigs.release',
+          if "signingConfigs" not in s:
+              s = re.sub(r'(?m)^android\\s*\\{',
+                         lambda m: m.group(0) + "\\n" + signing,
                          s, count=1)
+
+          if "signingConfigs" not in s:
+              raise SystemExit("No se pudo insertar signingConfigs.")
+
+          if "buildTypes" in s:
+              if is_kotlin:
+                  pattern = r'(?m)^(\\s*)getByName\\("release"\\)\\s*\\{'
+                  replacement = lambda m: m.group(0) + "\\n" + m.group(1) + "    " + release_line
+                  s, n = re.subn(pattern, replacement, s, count=1)
+              else:
+                  pattern = r'(?m)^\\s*release\\s*\\{'
+                  s, n = re.subn(pattern, lambda m: m.group(0) + "\\n            " + release_line, s, count=1)
+              if n == 0:
+                  raise SystemExit("No se encontró el bloque release para configurar la firma.")
+          else:
+              raise SystemExit("El archivo no tiene buildTypes; necesito revisar su estructura.")
 
           p.write_text(s)
           print("Configuración de firma aplicada.")
@@ -130,6 +159,7 @@ jobs:
 
           chmod +x gradlew
           ./gradlew bundleRelease
+          
           
 
       - name: Guardar paquete AAB
