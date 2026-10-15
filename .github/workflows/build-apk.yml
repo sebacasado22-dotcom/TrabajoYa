@@ -59,11 +59,12 @@ jobs:
           npx cap add android
           npx cap sync android
           
-      - name: Revisar versiones de Android
+            - name: Revisar versiones de Android
         working-directory: ${{ env.PROJECT_DIR }}/android
         run: |
           echo "=== CONFIGURACION ANDROID ==="
-          grep -nE 'compileSdk|targetSdk|minSdk' app/build.gradle
+          grep -nE 'compileSdkVersion|minSdkVersion|targetSdkVersion' build.gradle
+          grep -nE 'compileSdkVersion|minSdkVersion|targetSdkVersion' app/build.gradle
           
 
       - name: Configurar Java
