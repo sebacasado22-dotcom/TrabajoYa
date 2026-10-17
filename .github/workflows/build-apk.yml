@@ -59,6 +59,13 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Configurar Android 16
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          sed -i 's/compileSdkVersion = 35/compileSdkVersion = 36/' variables.gradle
+          sed -i 's/targetSdkVersion = 35/targetSdkVersion = 36/' variables.gradle
+          grep -E 'compileSdkVersion|targetSdkVersion' variables.gradle
+
       - name: Revisar versiones de Android
         working-directory: ${{ env.PROJECT_DIR }}/android
         run: |
