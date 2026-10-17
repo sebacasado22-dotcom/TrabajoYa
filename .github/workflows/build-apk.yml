@@ -75,6 +75,8 @@ jobs:
           cat app/build.gradle
                     echo "=== VERSION ANDROID GRADLE PLUGIN ==="
           grep -R "com.android.tools.build:gradle" -n . || true
+                    echo "=== VERSION DE GRADLE ==="
+          cat gradle/wrapper/gradle-wrapper.properties
 
       - name: Configurar Java
         uses: actions/setup-java@v4
