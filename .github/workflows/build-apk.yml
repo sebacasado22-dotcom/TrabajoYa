@@ -78,6 +78,13 @@ jobs:
                     echo "=== VERSION DE GRADLE ==="
           cat gradle/wrapper/gradle-wrapper.properties
 
+      - name: Actualizar Android Gradle Plugin
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          sed -i "s/com.android.tools.build:gradle:8.7.2/com.android.tools.build:gradle:8.9.1/g" build.gradle
+          sed -i "s/com.android.tools.build:gradle:8.7.2/com.android.tools.build:gradle:8.9.1/g" capacitor-cordova-android-plugins/build.gradle
+          grep -R "com.android.tools.build:gradle:" -n build.gradle capacitor-cordova-android-plugins/build.gradle
+
       - name: Configurar Java
         uses: actions/setup-java@v4
         with:
