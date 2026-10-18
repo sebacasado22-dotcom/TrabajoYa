@@ -160,4 +160,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TrabajoYa-APK
-          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
+                    path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/release/app-release.apk
