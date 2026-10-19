@@ -96,6 +96,49 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
+          
+      - name: Configurar firma Release
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("app/build.gradle")
+          s = p.read_text()
+
+          if "signingConfigs {" not in s:
+              s = s.replace(
+                  "    buildTypes {",
+                  """    signingConfigs {
+                  release {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                  }
+              }
+
+              buildTypes {""",
+                  1
+              )
+
+          s = s.replace(
+              "buildTypes {",
+              "buildTypes {",
+              1
+          )
+
+          if "signingConfig signingConfigs.release" not in s:
+              s = s.replace(
+                  "release {",
+                  "release {\n            signingConfig signingConfigs.release",
+                  1
+              )
+
+          p.write_text(s)
+          PY
+          
+
       - name: Compilar APK firmado
         working-directory: ${{ env.PROJECT_DIR }}/android
         env:
