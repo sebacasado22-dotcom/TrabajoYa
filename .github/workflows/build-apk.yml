@@ -97,46 +97,58 @@ jobs:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
           
+      
       - name: Configurar firma Release
         working-directory: ${{ env.PROJECT_DIR }}/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/trabajoya-release.jks"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          test -s "$ANDROID_KEYSTORE_PATH"
           python3 - <<'PY'
           from pathlib import Path
 
           p = Path("app/build.gradle")
           s = p.read_text()
 
-          if "signingConfigs {" not in s:
-              s = s.replace(
-                  "    buildTypes {",
-                  """    signingConfigs {
-                  release {
-                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
-                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
-                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
-                  }
+          start = s.find("    signingConfigs {")
+          if start != -1:
+              depth = 0
+              end = start
+              for i in range(start, len(s)):
+                  if s[i] == "{":
+                      depth += 1
+                  elif s[i] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          end = i + 1
+                          break
+              s = s[:start] + s[end:]
+
+          marker = "    buildTypes {"
+          if marker not in s:
+              raise SystemExit("No se encontró buildTypes en app/build.gradle")
+
+          signing = """    signingConfigs {
+              release {
+                  storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                  storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                  keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                  keyPassword System.getenv("ANDROID_KEY_PASSWORD")
               }
+          }
 
-              buildTypes {""",
-                  1
-              )
-
-          s = s.replace(
-              "buildTypes {",
-              "buildTypes {",
-              1
-          )
-
-          if "signingConfig signingConfigs.release" not in s:
-              s = s.replace(
-                  "release {",
-                  "release {\n            signingConfig signingConfigs.release",
-                  1
-              )
+          """
+          s = s.replace(marker, signing + marker, 1)
 
           p.write_text(s)
           PY
+          
           
 
       - name: Compilar APK firmado
