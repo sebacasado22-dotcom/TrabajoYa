@@ -199,8 +199,10 @@ jobs:
           path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/bundle/release/*.aab
           
 
+      
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
           name: TrabajoYa-APK
-                    path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/release/app-release.apk
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/release/app-release.apk
+          
