@@ -149,6 +149,34 @@ jobs:
           p.write_text(s)
           PY
           
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("app/build.gradle")
+          s = p.read_text()
+
+          marker = "buildTypes {"
+          if marker not in s:
+              raise SystemExit("No se encontró buildTypes")
+
+          start = s.index(marker)
+          release = s.find("release {", start)
+          if release == -1:
+              raise SystemExit("No se encontró release dentro de buildTypes")
+
+          end = s.find("}", release)
+          block = s[release:end]
+
+          if "signingConfig signingConfigs.release" not in block:
+              s = s[:release] + s[release:].replace(
+                  "release {",
+                  "release {\n            signingConfig signingConfigs.release",
+                  1
+              )
+
+          p.write_text(s)
+          PY
+          
           
 
       - name: Compilar APK firmado
