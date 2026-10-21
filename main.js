@@ -39,7 +39,47 @@ async function jobsScreen(){const q=window.__query||'';let query=supabase.from('
 function jobCard(j){return `<article class="job"><span class="pill">ACTIVA</span><h3>${esc(j.title)}</h3><div class="muted">🏢 ${esc(j.company||'Empresa')} · 📍 ${esc(j.location||'Sin localidad')}</div><div class="muted">${esc(j.category||'General')}${j.salary?' · 💰 '+esc(j.salary):''}</div><p>${esc(j.description||'')}</p><div class="actions"><button onclick="window.__apply('${j.id}')">📨 Postularme</button><button class="secondary" onclick="window.__save('${j.id}')">❤️ Guardar</button>${j.whatsapp?`<button class="secondary" onclick="window.__wa('${encodeURIComponent(j.whatsapp)}')">WhatsApp</button>`:''}</div></article>`}
 function postScreen(){screen(`<section><h2>📣 Publicar oferta</h2><div id="postmsg"></div><label>Puesto</label><input id="jt" placeholder="Ej. Repositor / Operario de depósito"><label>Empresa</label><input id="jc" value="${esc(profile?.company_name||'')}" placeholder="Nombre de la empresa"><label>Localidad</label><input id="jl" value="${esc(profile?.location||'')}" placeholder="Ej. Mendoza"><label>Categoría</label><input id="jcat" placeholder="Ej. Depósito y logística"><label>Salario</label><input id="jsal" placeholder="Ej. $800.000 mensuales"><label>Descripción</label><textarea id="jdesc" rows="5" placeholder="Requisitos, horario, tareas..."></textarea><button class="full" id="publish">PUBLICAR OFERTA</button></section>`);$('#publish').onclick=publishJob}
 async function publishJob(){if(profile.role!=='employer'){alert('Para publicar ofertas, cambiá tu perfil a Empresa en Perfil.');return}const payload={employer_id:session.user.id,title:$('#jt').value.trim(),company:$('#jc').value.trim(),location:$('#jl').value.trim(),category:$('#jcat').value.trim(),salary:$('#jsal').value.trim()||null,description:$('#jdesc').value.trim(),status:'active'};if(!payload.title||!payload.company||!payload.description){$('#postmsg').innerHTML='<div class="error">Completá puesto, empresa y descripción.</div>';return}const {error}=await supabase.from('jobs').insert(payload);if(error)$('#postmsg').innerHTML=`<div class="error">${esc(error.message)}</div>`;else{postScreen();$('#postmsg').innerHTML='<div class="ok">Oferta publicada correctamente.</div>'}}
-async function apply(id){const message=prompt('Mensaje para la empresa (opcional):','Hola, me interesa la oportunidad. Quedo disponible para una entrevista.');const {error}=await supabase.from('applications').insert({job_id:id,applicant_id:session.user.id,message:message||null});alert(error?error.message:'¡Postulación enviada!')}
+
+async function apply(id) {
+  const { data: existing, error: checkError } = await supabase
+    .from('applications')
+    .select('id')
+    .eq('job_id', id)
+    .eq('applicant_id', session.user.id)
+    .maybeSingle();
+
+  if (checkError) {
+    alert('No se pudo verificar tu postulación. Intentá nuevamente.');
+    return;
+  }
+
+  if (existing) {
+    alert('Ya te postulaste a esta oferta.');
+    return;
+  }
+
+  const message = prompt(
+    'Mensaje para la empresa (opcional):',
+    'Hola, me interesa la oportunidad. Quedo disponible para una entrevista.'
+  );
+
+  if (message === null) return;
+
+  const { error } = await supabase.from('applications').insert({
+    job_id: id,
+    applicant_id: session.user.id,
+    message: message || null
+  });
+
+  if (error?.code === '23505') {
+    alert('Ya te postulaste a esta oferta.');
+  } else if (error) {
+    alert('No se pudo enviar la postulación. Intentá nuevamente.');
+  } else {
+    alert('¡Postulación enviada correctamente!');
+  }
+}
+
 async function saveJob(id){const {data:exists}=await supabase.from('saved_jobs').select('job_id').eq('user_id',session.user.id).eq('job_id',id).maybeSingle();if(exists){await supabase.from('saved_jobs').delete().eq('user_id',session.user.id).eq('job_id',id);alert('Quitado de guardados.')}else{const {error}=await supabase.from('saved_jobs').insert({user_id:session.user.id,job_id:id});alert(error?'No se pudo guardar.':'Trabajo guardado.')}}
 async function savedScreen(){const {data,error}=await supabase.from('saved_jobs').select('job_id,jobs(*)').eq('user_id',session.user.id).order('created_at',{ascending:false});screen(`<section><h2>❤️ Guardados</h2>${error?`<div class="error">${esc(error.message)}</div>`:data?.length?data.map(x=>jobCard(x.jobs)).join(''):'<div class="empty">Todavía no guardaste trabajos.</div>'}</section>`)}
 function profileScreen(){screen(`<section><h2>👤 Mi perfil</h2><div class="card"><div class="big">${esc(profile.full_name||'Usuario')}</div><div class="muted">${esc(session.user.email||'')}</div><label>Nombre</label><input id="pn" value="${esc(profile.full_name||'')}"><label>Tipo</label><select id="pr"><option value="worker" ${profile.role==='worker'?'selected':''}>Trabajador</option><option value="employer" ${profile.role==='employer'?'selected':''}>Empresa</option></select><label>Teléfono</label><input id="pp" value="${esc(profile.phone||'')}"><label>Localidad</label><input id="pl" value="${esc(profile.location||'')}" placeholder="La Consulta / Mendoza"><label>Trabajo buscado</label><input id="pj" value="${esc(profile.desired_job||'')}" placeholder="Repositor, depósito, logística..."><label>Experiencia</label><textarea id="pe" rows="3">${esc(profile.experience||'')}</textarea><label>Habilidades</label><textarea id="ps" rows="3">${esc(profile.skills||'')}</textarea><div id="pmsg"></div><button class="full" id="saveP">GUARDAR PERFIL</button>${profile.role==='employer'?'<button class="full secondary" id="myJobsBtn">MIS OFERTAS PUBLICADAS</button><button class="full secondary" id="appsBtn">POSTULACIONES RECIBIDAS</button>':''}<button class="full danger" id="logout">CERRAR SESIÓN</button></div></section>`);$('#saveP').onclick=updateProfile;if($('#myJobsBtn'))$('#myJobsBtn').onclick=()=>go('myjobs');if($('#appsBtn'))$('#appsBtn').onclick=()=>go('applications');$('#logout').onclick=async()=>{await supabase.auth.signOut();session=null;profile=null;auth()}}
