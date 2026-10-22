@@ -78,7 +78,142 @@ function home() {
   `);
 }
 
-async function jobsScreen(){const q=window.__query||'';let query=supabase.from('jobs').select('*').eq('status','active').order('created_at',{ascending:false}).limit(50);if(q)query=query.or(`title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%,category.ilike.%${q}%`);const r=await query;jobs=r.data||[];screen(`<section><h2>🔎 Buscar trabajos</h2><div class="row"><input id="search" value="${esc(q)}" placeholder="Puesto, empresa, localidad"><button id="doSearch">Buscar</button></div><div id="jobList">${r.error?`<div class="error">${esc(r.error.message)}</div>`:jobs.length?jobs.map(jobCard).join(''):'<div class="empty">No encontramos ofertas activas todavía.</div>'}</div></section>`);$('#doSearch').onclick=()=>{window.__query=$('#search').value.trim();jobsScreen()}}
+
+async function jobsScreen() {
+  const q = window.__query || '';
+
+  let query = supabase
+    .from('jobs')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (q) {
+    const term = q.replace(/[,%()]/g, ' ').trim();
+    if (term) {
+      query = query.or(
+        `title.ilike.%${term}%,company.ilike.%${term}%,location.ilike.%${term}%,category.ilike.%${term}%`
+      );
+    }
+  }
+
+  const r = await query;
+  jobs = r.data || [];
+
+  screen(`
+    <section>
+      <h2>🔎 Encontrá tu próximo trabajo</h2>
+      <p class="muted">
+        Buscá por puesto, empresa, localidad o categoría.
+      </p>
+
+      <div class="row">
+        <input
+          id="search"
+          value="${esc(q)}"
+          placeholder="Ej. repositor, Mendoza..."
+          aria-label="Buscar ofertas de empleo"
+        >
+        <button id="doSearch">Buscar</button>
+      </div>
+
+      <p class="muted">
+        ${r.error ? '' : jobs.length + ' oferta(s) encontrada(s)'}
+      </p>
+
+      <div id="jobList">
+        ${
+          r.error
+            ? `<div class="error">No pudimos cargar las ofertas. Revisá tu conexión e intentá nuevamente.</div>`
+            : jobs.length
+              ? jobs.map(jobCard).join('')
+              : `<div class="empty">
+                  <h3>🔍 No encontramos ofertas</h3>
+                  <p>Probá con otro puesto o localidad.</p>
+                  ${q ? '<button class="secondary" id="clearSearch">Ver todas las ofertas</button>' : 'Cuando se publiquen nuevas oportunidades, aparecerán acá.'}
+                </div>`
+        }
+      </div>
+    </section>
+  `);
+
+  const searchInput = document.querySelector('#search');
+
+  $('#doSearch').onclick = () => {
+    window.__query = searchInput.value.trim();
+    jobsScreen();
+  };
+
+  searchInput.onkeydown = event => {
+    if (event.key === 'Enter') {
+      window.__query = searchInput.value.trim();
+      jobsScreen();
+    }
+  };
+
+  if ($('#clearSearch')) {
+    $('#clearSearch').onclick = () => {
+      window.__query = '';
+      jobsScreen();
+    };
+  }
+}
+
+function jobCard(j) {
+  return `
+    <article class="job">
+      <span class="pill">● OFERTA ACTIVA</span>
+
+      <h3>${esc(j.title || 'Puesto sin título')}</h3>
+
+      <div class="muted">
+        🏢 ${esc(j.company || 'Empresa no informada')}
+      </div>
+
+      <div class="muted">
+        📍 ${esc(j.location || 'Localidad no informada')}
+      </div>
+
+      <div class="muted">
+        🗂️ ${esc(j.category || 'General')}
+      </div>
+
+      ${
+        j.salary
+          ? `<div class="price">💰 ${esc(j.salary)}</div>`
+          : `<p class="muted">Salario a convenir</p>`
+      }
+
+      <p style="white-space:pre-line;overflow-wrap:anywhere">
+        ${esc(j.description || 'Consultá los detalles de esta oportunidad.')}
+      </p>
+
+      <div class="actions">
+        <button onclick="window.__apply('${j.id}')">
+          📨 Postularme
+        </button>
+
+        <button
+          class="secondary"
+          onclick="window.__save('${j.id}')"
+        >
+          ❤️ Guardar
+        </button>
+
+        ${
+          j.whatsapp
+            ? `<button
+                class="secondary"
+                onclick="window.__wa('${encodeURIComponent(j.whatsapp)}')"
+              >WhatsApp</button>`
+            : ''
+        }
+      </div>
+    </article>
+  `;
+}
+
 function jobCard(j){return `<article class="job"><span class="pill">ACTIVA</span><h3>${esc(j.title)}</h3><div class="muted">🏢 ${esc(j.company||'Empresa')} · 📍 ${esc(j.location||'Sin localidad')}</div><div class="muted">${esc(j.category||'General')}${j.salary?' · 💰 '+esc(j.salary):''}</div><p>${esc(j.description||'')}</p><div class="actions"><button onclick="window.__apply('${j.id}')">📨 Postularme</button><button class="secondary" onclick="window.__save('${j.id}')">❤️ Guardar</button>${j.whatsapp?`<button class="secondary" onclick="window.__wa('${encodeURIComponent(j.whatsapp)}')">WhatsApp</button>`:''}</div></article>`}
 function postScreen(){screen(`<section><h2>📣 Publicar oferta</h2><div id="postmsg"></div><label>Puesto</label><input id="jt" placeholder="Ej. Repositor / Operario de depósito"><label>Empresa</label><input id="jc" value="${esc(profile?.company_name||'')}" placeholder="Nombre de la empresa"><label>Localidad</label><input id="jl" value="${esc(profile?.location||'')}" placeholder="Ej. Mendoza"><label>Categoría</label><input id="jcat" placeholder="Ej. Depósito y logística"><label>Salario</label><input id="jsal" placeholder="Ej. $800.000 mensuales"><label>Descripción</label><textarea id="jdesc" rows="5" placeholder="Requisitos, horario, tareas..."></textarea><button class="full" id="publish">PUBLICAR OFERTA</button></section>`);$('#publish').onclick=publishJob}
 async function publishJob(){if(profile.role!=='employer'){alert('Para publicar ofertas, cambiá tu perfil a Empresa en Perfil.');return}const payload={employer_id:session.user.id,title:$('#jt').value.trim(),company:$('#jc').value.trim(),location:$('#jl').value.trim(),category:$('#jcat').value.trim(),salary:$('#jsal').value.trim()||null,description:$('#jdesc').value.trim(),status:'active'};if(!payload.title||!payload.company||!payload.description){$('#postmsg').innerHTML='<div class="error">Completá puesto, empresa y descripción.</div>';return}const {error}=await supabase.from('jobs').insert(payload);if(error)$('#postmsg').innerHTML=`<div class="error">${esc(error.message)}</div>`;else{postScreen();$('#postmsg').innerHTML='<div class="ok">Oferta publicada correctamente.</div>'}}
