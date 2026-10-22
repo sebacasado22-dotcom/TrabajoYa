@@ -34,7 +34,50 @@ function auth(msg=''){screen(`<section class="auth"><div class="card hero"><div 
 async function login(){const email=$('#email').value.trim(),password=$('#pass').value;if(!email||!password){$('#authmsg').textContent='Ingresá tu email y contraseña.';return}$('#authmsg').textContent='Conectando…';const {error}=await authRequest(()=>supabase.auth.signInWithPassword({email,password}));if(error)$('#authmsg').textContent=error.message;else await boot()}
 async function signup(){const email=$('#email').value.trim(),password=$('#pass').value;if(!email){$('#authmsg').textContent='Ingresá un email válido.';return}if(password.length<6){$('#authmsg').textContent='La contraseña debe tener al menos 6 caracteres.';return}$('#authmsg').textContent='Conectando…';const {error}=await authRequest(()=>supabase.auth.signUp({email,password,options:{data:{full_name:email.split('@')[0],role:'worker'}}}));$('#authmsg').textContent=error?error.message:'Cuenta creada. Revisá tu email si Supabase solicita confirmación.'}
 async function loadProfile(){if(!session)return;const {data}=await supabase.from('profiles').select('*').eq('id',session.user.id).maybeSingle();profile=data||{id:session.user.id,full_name:session.user.email?.split('@')[0]||'Usuario',role:'worker'};}
-function home(){screen(`<section><div class="card hero"><div class="big">Hola, ${esc(profile?.full_name||'👋')} 👋</div><div class="muted">${profile?.role==='employer'?'Publicá una oferta y encontrá personas.':'Buscá oportunidades y postuláte.'}</div></div><div class="grid"><div class="tile" onclick="window.__go('jobs')">🔎 Buscar trabajo</div><div class="tile" onclick="window.__go('post')">📣 Publicar oferta</div><div class="tile" onclick="window.__calc()">🧾 ¿Cuánto cobro?</div><div class="tile" onclick="window.__go('saved')">❤️ Guardados</div></div><div class="card"><h3>TrabajoYa V2</h3><p class="muted">Cuenta online, ofertas en la nube, postulaciones y favoritos sincronizados.</p></div></section>`)}
+
+function home() {
+  const isEmployer = profile?.role === 'employer';
+
+  screen(`
+    <section class="home-screen">
+      <div class="card hero">
+        <div class="big">${isEmployer ? '¡Bienvenido a TrabajoYa!' : '¡Tu próximo trabajo te espera! 👋'}</div>
+        <div class="muted">
+          ${isEmployer
+            ? 'Publicá oportunidades y conectá con candidatos.'
+            : 'Encontrá oportunidades laborales cerca tuyo.'}
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="tile" onclick="window.__go('jobs')">
+          🔎 Buscar trabajo
+        </div>
+        <div class="tile" onclick="window.__go('post')">
+          📣 Publicar oferta
+        </div>
+        <div class="tile" onclick="window.__calc()">
+          🧾 ¿Cuánto cobro?
+        </div>
+        <div class="tile" onclick="window.__go('saved')">
+          ❤️ Guardados
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Encontrá nuevas oportunidades</h3>
+        <p class="muted">
+          Explorá ofertas, guardá las que te interesan
+          y postuláte desde tu celular.
+        </p>
+        <button class="full" onclick="window.__go('jobs')">
+          VER OFERTAS DE TRABAJO
+        </button>
+      </div>
+    </section>
+  `);
+}
+
 async function jobsScreen(){const q=window.__query||'';let query=supabase.from('jobs').select('*').eq('status','active').order('created_at',{ascending:false}).limit(50);if(q)query=query.or(`title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%,category.ilike.%${q}%`);const r=await query;jobs=r.data||[];screen(`<section><h2>🔎 Buscar trabajos</h2><div class="row"><input id="search" value="${esc(q)}" placeholder="Puesto, empresa, localidad"><button id="doSearch">Buscar</button></div><div id="jobList">${r.error?`<div class="error">${esc(r.error.message)}</div>`:jobs.length?jobs.map(jobCard).join(''):'<div class="empty">No encontramos ofertas activas todavía.</div>'}</div></section>`);$('#doSearch').onclick=()=>{window.__query=$('#search').value.trim();jobsScreen()}}
 function jobCard(j){return `<article class="job"><span class="pill">ACTIVA</span><h3>${esc(j.title)}</h3><div class="muted">🏢 ${esc(j.company||'Empresa')} · 📍 ${esc(j.location||'Sin localidad')}</div><div class="muted">${esc(j.category||'General')}${j.salary?' · 💰 '+esc(j.salary):''}</div><p>${esc(j.description||'')}</p><div class="actions"><button onclick="window.__apply('${j.id}')">📨 Postularme</button><button class="secondary" onclick="window.__save('${j.id}')">❤️ Guardar</button>${j.whatsapp?`<button class="secondary" onclick="window.__wa('${encodeURIComponent(j.whatsapp)}')">WhatsApp</button>`:''}</div></article>`}
 function postScreen(){screen(`<section><h2>📣 Publicar oferta</h2><div id="postmsg"></div><label>Puesto</label><input id="jt" placeholder="Ej. Repositor / Operario de depósito"><label>Empresa</label><input id="jc" value="${esc(profile?.company_name||'')}" placeholder="Nombre de la empresa"><label>Localidad</label><input id="jl" value="${esc(profile?.location||'')}" placeholder="Ej. Mendoza"><label>Categoría</label><input id="jcat" placeholder="Ej. Depósito y logística"><label>Salario</label><input id="jsal" placeholder="Ej. $800.000 mensuales"><label>Descripción</label><textarea id="jdesc" rows="5" placeholder="Requisitos, horario, tareas..."></textarea><button class="full" id="publish">PUBLICAR OFERTA</button></section>`);$('#publish').onclick=publishJob}
