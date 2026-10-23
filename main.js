@@ -32,7 +32,51 @@ function screen(html){$('#main').innerHTML=html}
 async function go(name){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.nav===name));if(!session){return auth()} if(name==='home')home(); if(name==='jobs')await jobsScreen(); if(name==='post')postScreen(); if(name==='saved')await savedScreen(); if(name==='profile')profileScreen(); if(name==='applications')await employerApplicationsScreen(); if(name==='myjobs')await employerJobsScreen()}
 function auth(msg=''){screen(`<section class="auth"><div class="card hero"><div class="big">Encontrá tu próxima oportunidad.</div><div class="muted">Creá tu cuenta gratis y empezá a usar TrabajoYa.</div></div>${msg?`<div class="error">${esc(msg)}</div>`:''}<div class="card"><h2>Ingresar</h2><label>Email</label><input id="email" type="email" autocomplete="email" placeholder="tu@email.com"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" placeholder="Mínimo 6 caracteres"><button class="full" id="login">INGRESAR</button><button class="full secondary" id="signup">CREAR CUENTA</button><div id="authmsg" class="muted" style="margin-top:10px"></div></div></section>`);$('#login').onclick=login;$('#signup').onclick=signup}
 async function login(){const email=$('#email').value.trim(),password=$('#pass').value;if(!email||!password){$('#authmsg').textContent='Ingresá tu email y contraseña.';return}$('#authmsg').textContent='Conectando…';const {error}=await authRequest(()=>supabase.auth.signInWithPassword({email,password}));if(error)$('#authmsg').textContent=error.message;else await boot()}
-async function signup(){const email=$('#email').value.trim(),password=$('#pass').value;if(!email){$('#authmsg').textContent='Ingresá un email válido.';return}if(password.length<6){$('#authmsg').textContent='La contraseña debe tener al menos 6 caracteres.';return}$('#authmsg').textContent='Conectando…';const {error}=await authRequest(()=>supabase.auth.signUp({email,password,options:{data:{full_name:email.split('@')[0],role:'worker'}}}));$('#authmsg').textContent=error?error.message:'Cuenta creada. Revisá tu email si Supabase solicita confirmación.'}
+
+async function signup() {
+  const email = $('#email').value.trim();
+  const password = $('#pass').value;
+
+  if (!email) {
+    $('#authmsg').textContent = 'Ingresá un email válido.';
+    return;
+  }
+
+  if (password.length < 6) {
+    $('#authmsg').textContent = 'La contraseña debe tener al menos 6 caracteres.';
+    return;
+  }
+
+  $('#authmsg').textContent = 'Enviando solicitud…';
+
+  const { data, error } = await authRequest(() =>
+    supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: 'https://sebacasado22-dotcom.github.io/TrabajoYa/',
+        data: {
+          full_name: email.split('@')[0],
+          role: 'worker'
+        }
+      }
+    })
+  );
+
+  if (error) {
+    $('#authmsg').textContent = error.message;
+    return;
+  }
+
+  if (data?.user && !data.session) {
+    $('#authmsg').textContent =
+      '¡Cuenta creada! Revisá tu correo y tocá el enlace de confirmación para activar tu cuenta.';
+  } else {
+    $('#authmsg').textContent =
+      'Cuenta creada. Ya podés continuar.';
+  }
+}
+
 async function loadProfile(){if(!session)return;const {data}=await supabase.from('profiles').select('*').eq('id',session.user.id).maybeSingle();profile=data||{id:session.user.id,full_name:session.user.email?.split('@')[0]||'Usuario',role:'worker'};}
 
 function home() {
