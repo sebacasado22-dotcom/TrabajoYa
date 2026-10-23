@@ -1,0 +1,76 @@
+
+name: Deploy TrabajoYa Web
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'TrabajoYa_V2_MEJORADA.zip'
+      - '.github/workflows/deploy-web.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Extraer proyecto
+        run: |
+          mkdir -p proyecto
+          unzip -o TrabajoYa_V2_MEJORADA.zip -d proyecto
+          PROJECT_DIR=$(find proyecto -name package.json -type f -print -quit | xargs dirname)
+          test -n "$PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Instalar dependencias
+        working-directory: proyecto
+        run: |
+          PROJECT_DIR=$(find . -name package.json -type f -print -quit | xargs dirname)
+          cd "$PROJECT_DIR"
+          npm install
+
+      - name: Construir web
+        run: |
+          cd "$PROJECT_DIR"
+          npm run build
+          if [ -d dist ]; then
+            echo "DIST_DIR=$PROJECT_DIR/dist" >> "$GITHUB_ENV"
+          elif [ -d build ]; then
+            echo "DIST_DIR=$PROJECT_DIR/build" >> "$GITHUB_ENV"
+          else
+            echo "No se encontró la carpeta de salida dist o build"
+            exit 1
+          fi
+
+      - name: Preparar GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.DIST_DIR }}
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Publicar web
+        id: deployment
+        uses: actions/deploy-pages@v4
