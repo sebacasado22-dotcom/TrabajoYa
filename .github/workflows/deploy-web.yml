@@ -46,10 +46,10 @@ jobs:
           cd "$PROJECT_DIR"
           npm install
 
-      - name: Construir web
+            - name: Construir web
         run: |
           cd "$PROJECT_DIR"
-          npm run build
+          npm run build -- --base=/TrabajoYa/
           if [ -d dist ]; then
             echo "DIST_DIR=$PROJECT_DIR/dist" >> "$GITHUB_ENV"
           elif [ -d build ]; then
