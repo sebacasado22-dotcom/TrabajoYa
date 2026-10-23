@@ -1,4 +1,3 @@
-
 name: Deploy TrabajoYa Web
 
 on:
@@ -6,9 +5,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'TrabajoYa_V2_MEJORADA.zip'
-      - '.github/workflows/deploy-web.yml'
 
 permissions:
   contents: read
@@ -35,31 +31,23 @@ jobs:
         run: |
           mkdir -p proyecto
           unzip -o TrabajoYa_V2_MEJORADA.zip -d proyecto
-          PROJECT_DIR=$(find proyecto -name package.json -type f -print -quit | xargs dirname)
-          test -n "$PROJECT_DIR"
+          PROJECT_DIR="$(dirname "$(find proyecto -name package.json -type f -print -quit)")"
+          test -f "$PROJECT_DIR/package.json"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Instalar dependencias
-        working-directory: proyecto
         run: |
-          PROJECT_DIR=$(find . -name package.json -type f -print -quit | xargs dirname)
           cd "$PROJECT_DIR"
           npm install
 
-            - name: Construir web
+      - name: Construir web
         run: |
           cd "$PROJECT_DIR"
           npm run build -- --base=/TrabajoYa/
-          if [ -d dist ]; then
-            echo "DIST_DIR=$PROJECT_DIR/dist" >> "$GITHUB_ENV"
-          elif [ -d build ]; then
-            echo "DIST_DIR=$PROJECT_DIR/build" >> "$GITHUB_ENV"
-          else
-            echo "No se encontró la carpeta de salida dist o build"
-            exit 1
-          fi
+          test -d dist
+          echo "DIST_DIR=$PROJECT_DIR/dist" >> "$GITHUB_ENV"
 
-      - name: Preparar GitHub Pages
+      - name: Preparar publicación
         uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ env.DIST_DIR }}
@@ -74,3 +62,4 @@ jobs:
       - name: Publicar web
         id: deployment
         uses: actions/deploy-pages@v4
+        
